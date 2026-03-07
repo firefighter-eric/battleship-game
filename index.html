@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>海战棋 MVP</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23f3f6fb'/%3E%3Cpath d='M14 38h36l-3 8H17z' fill='%23111827'/%3E%3Cpath d='M24 18h16v14H24z' fill='%23ffffff' stroke='%23cbd5e1' stroke-width='2'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">NAVAL TACTICS // SOLO MVP</p>
+          <h1>海战棋</h1>
+          <p class="hero-copy">
+            先完成布阵，再用坐标推理击沉 AI 舰队。当前版本专注单机人机对战，保留后续扩展空间。
+          </p>
+        </div>
+        <div class="hero-panel">
+          <div class="stat-chip">
+            <span>棋盘</span>
+            <strong>10 x 10</strong>
+          </div>
+          <div class="stat-chip">
+            <span>模式</span>
+            <strong>人机对战</strong>
+          </div>
+          <div class="stat-chip">
+            <span>舰船</span>
+            <strong>5 艘</strong>
+          </div>
+        </div>
+      </header>
+
+      <main id="app"></main>
+    </div>
+
+    <template id="app-template">
+      <section class="topbar">
+        <div class="status-block">
+          <span class="label">阶段</span>
+          <strong data-role="phase-label"></strong>
+        </div>
+        <div class="status-block">
+          <span class="label">提示</span>
+          <strong data-role="status-message"></strong>
+        </div>
+        <div class="status-block">
+          <span class="label">AI 难度</span>
+          <select data-role="difficulty-select" aria-label="选择 AI 难度">
+            <option value="easy">简单</option>
+            <option value="medium" selected>普通</option>
+            <option value="hard">困难</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="sidebar">
+          <div class="card guide-card">
+            <div class="card-title-row">
+              <h2>作战引导</h2>
+              <button class="ghost-btn" data-action="toggle-tutorial">查看规则</button>
+            </div>
+            <ol class="guide-list">
+              <li>选择舰船，点击格子放置，使用“旋转”切换方向。</li>
+              <li>所有舰船放好后进入对战。</li>
+              <li>点击敌方棋盘发起攻击，等待命中、未命中或击沉反馈。</li>
+              <li>先击沉全部敌舰者获胜。</li>
+            </ol>
+          </div>
+
+          <div class="card" data-role="setup-panel">
+            <div class="card-title-row">
+              <h2>布阵控制</h2>
+              <button class="ghost-btn" data-action="rotate-ship">旋转</button>
+            </div>
+            <div class="setup-summary" data-role="setup-summary"></div>
+            <div class="button-grid">
+              <button data-action="randomize-player">随机布阵</button>
+              <button data-action="reset-player" class="secondary">重置</button>
+              <button data-action="start-battle" class="accent">开始对战</button>
+            </div>
+            <div data-role="ship-list" class="ship-list"></div>
+          </div>
+
+          <div class="card">
+            <h2>战报</h2>
+            <div class="battle-log" data-role="battle-log"></div>
+          </div>
+
+          <div class="card">
+            <h2>统计</h2>
+            <div class="stats-grid" data-role="stats-grid"></div>
+          </div>
+        </aside>
+
+        <section class="board-stage">
+          <div class="board-card primary-board">
+            <div class="board-header">
+              <h2 data-role="enemy-board-title">敌方海域</h2>
+              <p>点击格子攻击</p>
+            </div>
+            <div data-role="enemy-board"></div>
+          </div>
+
+          <div class="board-card secondary-board">
+            <div class="board-header">
+              <h2 data-role="player-board-title">己方海域</h2>
+              <p>布阵与承受攻击反馈</p>
+            </div>
+            <div data-role="player-board"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="modal hidden" data-role="tutorial-modal">
+        <div class="modal-card">
+          <h2>新手说明</h2>
+          <ul>
+            <li>舰船长度分别为 5、4、3、3、2，只能横向或纵向摆放。</li>
+            <li>舰船不可越界、不可重叠，本版本允许相邻。</li>
+            <li>每回合只能攻击一个格子，系统会反馈未命中、命中或击沉。</li>
+            <li>AI 有三档难度，困难模式会结合概率搜索剩余舰船。</li>
+          </ul>
+          <button data-action="toggle-tutorial" class="accent">知道了</button>
+        </div>
+      </section>
+
+      <section class="modal hidden" data-role="result-modal">
+        <div class="modal-card result-card">
+          <p class="eyebrow">BATTLE REPORT</p>
+          <h2 data-role="result-title"></h2>
+          <div class="result-stats" data-role="result-stats"></div>
+          <div class="button-grid">
+            <button data-action="restart-game" class="accent">再来一局</button>
+            <button data-action="reset-player" class="secondary">重新布阵</button>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
