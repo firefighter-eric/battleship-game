@@ -231,6 +231,55 @@ test("desktop core flow keeps state, timing, focus, and dialogs coherent", async
   await page.close();
 });
 
+test("fleet overview keeps enemy status and own ship health visible together", async function () {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const consoleErrors = [];
+  page.on("console", function collectConsole(message) {
+    if (message.type() === "error" || message.type() === "warning") {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await page.goto("http://127.0.0.1:4175/?seed=42&test=1", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "随机布阵", exact: true }).click();
+  await page.getByRole("button", { name: "开始对战", exact: true }).click();
+
+  const fleet = page.locator('[data-role="fleet-overview"]');
+  assert.equal(await fleet.locator(".fleet-overview-row").count(), 5);
+  assert.equal(await fleet.locator('[data-state="afloat"]').count(), 5);
+  assert.equal(await fleet.locator('[data-state="sunk"]').count(), 0);
+  assert.equal(await fleet.locator('[data-player-state="afloat"]').count(), 5);
+  assert.equal(await fleet.locator('[data-ship-status="carrier"] .fleet-count').last().innerText(), "5/5");
+  assert.equal(await fleet.locator('[data-ship-status="carrier"] .health-segments span').count(), 5);
+  assert.match(await page.locator(".fleet-panel .board-summary").innerText(), /敌 5 · 我 5/);
+
+  const sunk = await page.evaluate(function sinkEnemyDestroyer() {
+    return window.__BATTLESHIP_TEST__.sinkEnemy("destroyer");
+  });
+  assert.equal(sunk, true);
+  assert.equal(await fleet.locator('[data-state="sunk"]').count(), 1);
+  assert.equal(await fleet.locator('[data-state="afloat"]').count(), 4);
+  assert.match(await fleet.locator('[data-ship-status="destroyer"]').innerText(), /驱逐舰.*已沉没/s);
+  assert.equal(await fleet.locator('[data-ship-status="destroyer"]').getAttribute("aria-label"), "驱逐舰，敌方已击沉，己方剩余2/2");
+  assert.match(await page.locator(".fleet-panel .board-summary").innerText(), /敌 4 · 我 5/);
+  assert.match(await page.locator('[data-role="status-message"]').innerText(), /驱逐舰已击沉/);
+  assert.equal(await page.locator(".main-board-panel .sunk").count(), 2);
+
+  const ownSunk = await page.evaluate(function sinkOwnSubmarine() {
+    return window.__BATTLESHIP_TEST__.sinkPlayer("submarine");
+  });
+  assert.equal(ownSunk, true);
+  assert.equal(await fleet.locator('[data-player-state="sunk"]').count(), 1);
+  assert.equal(await fleet.locator('[data-ship-status="submarine"] .fleet-count').last().innerText(), "0/3");
+  assert.equal(await fleet.locator('[data-ship-status="submarine"] .health-segments .hit').count(), 3);
+  assert.equal(await fleet.locator('[data-ship-status="submarine"]').getAttribute("aria-label"), "潜艇，敌方仍在役，己方剩余0/3");
+  assert.match(await page.locator(".fleet-panel .board-summary").innerText(), /敌 4 · 我 4/);
+  assert.match(await page.locator('[data-role="status-message"]').innerText(), /己方潜艇已沉没/);
+  assert.equal(await page.locator(".mini-board .sunk").count(), 3);
+  assert.deepEqual(consoleErrors, []);
+  await page.close();
+});
+
 test("mobile setup keeps the board and primary controls in the first viewport without overflow", async function () {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto("http://127.0.0.1:4175/?seed=42", { waitUntil: "networkidle" });
@@ -309,6 +358,9 @@ test("short desktop battle keeps the complete own board and battle log visible",
   await page.getByRole("button", { name: "开始对战", exact: true }).click();
 
   const metrics = await page.evaluate(function measureOwnBoard() {
+    const fleetPanel = document.querySelector(".fleet-panel").getBoundingClientRect();
+    const fleetRows = document.querySelectorAll('[data-role="fleet-overview"] .fleet-overview-row');
+    const lastFleetRow = fleetRows[fleetRows.length - 1].getBoundingClientRect();
     const panel = document.querySelector(".mini-board-panel").getBoundingClientRect();
     const board = document.querySelector(".mini-board .board-grid").getBoundingClientRect();
     const cells = document.querySelectorAll('.mini-board .board-grid [role="gridcell"]');
@@ -316,6 +368,8 @@ test("short desktop battle keeps the complete own board and battle log visible",
     const log = document.querySelector(".battle-log").getBoundingClientRect();
     return {
       viewportHeight: window.innerHeight,
+      fleetPanelBottom: fleetPanel.bottom,
+      lastFleetRowBottom: lastFleetRow.bottom,
       panelBottom: panel.bottom,
       boardBottom: board.bottom,
       lastCellBottom: lastCell.bottom,
@@ -324,10 +378,12 @@ test("short desktop battle keeps the complete own board and battle log visible",
     };
   });
 
+  assert.ok(metrics.lastFleetRowBottom <= metrics.fleetPanelBottom + 1);
   assert.ok(metrics.boardBottom <= metrics.panelBottom + 1);
   assert.ok(metrics.lastCellBottom <= metrics.panelBottom + 1);
   assert.ok(metrics.logBottom <= metrics.viewportHeight);
   assert.ok(metrics.logHeight >= 72);
+  assert.equal(await page.locator('[data-role="fleet-overview"] .fleet-overview-row').count(), 5);
   assert.equal(await page.locator(".mini-board .board-grid").getByRole("gridcell").count(), 100);
   assert.deepEqual(consoleErrors, []);
   await page.close();
