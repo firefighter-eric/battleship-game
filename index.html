@@ -3,144 +3,136 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>海战棋 MVP</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23f3f6fb'/%3E%3Cpath d='M14 38h36l-3 8H17z' fill='%23111827'/%3E%3Cpath d='M24 18h16v14H24z' fill='%23ffffff' stroke='%23cbd5e1' stroke-width='2'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./styles.css" />
+    <meta
+      name="description"
+      content="一款支持三档 AI 难度、键盘操作与移动端体验的单机海战棋游戏。"
+    />
+    <meta name="theme-color" content="#BCCDD3" />
+    <script>
+      (function applyInitialTheme() {
+        var saved = window.localStorage.getItem("battleship.theme");
+        var preference = ["auto", "day", "night"].includes(saved) ? saved : "auto";
+        var resolved = preference === "auto"
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "day"
+          : preference;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.themePreference = preference;
+        document.querySelector('meta[name="theme-color"]').content = resolved === "night" ? "#161616" : "#BCCDD3";
+      })();
+    </script>
+    <title>海战棋 · 单机战术对决</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2324353c'/%3E%3Ccircle cx='32' cy='32' r='17' fill='none' stroke='%2386afc2' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%2386afc2'/%3E%3Cpath d='M32 7v9M32 48v9M7 32h9M48 32h9' stroke='%23eeece5' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./styles.css?v=20260816-10" />
   </head>
   <body>
-    <div class="app-shell">
-      <header class="hero">
-        <div>
-          <p class="eyebrow">NAVAL TACTICS // SOLO MVP</p>
-          <h1>海战棋</h1>
-          <p class="hero-copy">
-            先完成布阵，再用坐标推理击沉 AI 舰队。当前版本专注单机人机对战，保留后续扩展空间。
-          </p>
+    <div id="game-root" class="game-root">
+      <header class="command-bar">
+        <a class="brand" href="./" aria-label="重新载入海战棋">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="16" cy="16" r="12"></circle>
+            <circle cx="16" cy="16" r="4"></circle>
+            <path d="M16 1.5v7M16 23.5v7M1.5 16h7M23.5 16h7"></path>
+          </svg>
+          <span>海战棋</span>
+        </a>
+
+        <div class="turn-indicator" data-role="turn-indicator">
+          <span class="turn-dot" aria-hidden="true"></span>
+          <span data-role="phase-label">布阵阶段</span>
         </div>
-        <div class="hero-panel">
-          <div class="stat-chip">
-            <span>棋盘</span>
-            <strong>10 x 10</strong>
+
+        <div class="command-meta">
+          <div class="timer" aria-label="对局计时">
+            <svg class="timer-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 6.5v6l4 2"></path>
+            </svg>
+            <strong data-role="timer">00:00</strong>
           </div>
-          <div class="stat-chip">
-            <span>模式</span>
-            <strong>人机对战</strong>
-          </div>
-          <div class="stat-chip">
-            <span>舰船</span>
-            <strong>5 艘</strong>
-          </div>
+
+          <label class="difficulty-control">
+            <span>AI</span>
+            <select data-role="difficulty-select" aria-label="选择 AI 难度">
+              <option value="easy">简单</option>
+              <option value="medium" selected>普通</option>
+              <option value="hard">困难</option>
+            </select>
+          </label>
+
+          <label class="theme-control">
+            <span>主题</span>
+            <select data-role="theme-select" aria-label="选择显示主题">
+              <option value="auto">自动</option>
+              <option value="day">白天</option>
+              <option value="night">夜晚</option>
+            </select>
+          </label>
+
+          <button
+            class="icon-button"
+            type="button"
+            data-action="toggle-sound"
+            data-focus-key="toggle-sound"
+            aria-label="关闭声音"
+            aria-pressed="true"
+          >
+            <svg class="sound-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path class="sound-body" d="M4 9h4l5-4v14l-5-4H4z"></path>
+              <path class="sound-wave" d="M16 8.3a5 5 0 0 1 0 7.4M18.6 5.8a8.5 8.5 0 0 1 0 12.4"></path>
+              <path class="sound-muted" d="m16 9 5 6m0-6-5 6"></path>
+            </svg>
+          </button>
+
+          <button
+            class="icon-button rules-button"
+            type="button"
+            data-action="open-rules"
+            data-focus-key="open-rules"
+            aria-label="查看规则"
+          >
+            <svg class="help-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M9.7 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1.2.9-1.2 1.7M12 16.8v.2"></path>
+            </svg>
+            <span class="button-label">规则</span>
+          </button>
+
+          <button
+            class="secondary-button restart-button"
+            type="button"
+            data-action="request-restart"
+            data-focus-key="request-restart"
+          >
+            <svg class="restart-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 11a8 8 0 1 0-2.2 5.5"></path>
+              <path d="M20 5v6h-6"></path>
+            </svg>
+            <span>重新开始</span>
+          </button>
         </div>
       </header>
 
-      <main id="app"></main>
+      <main id="app" class="game-app"></main>
+
+      <footer class="status-bar">
+        <span class="status-target" aria-hidden="true"></span>
+        <strong>提示</strong>
+        <span data-role="status-message">选择舰船并完成布阵。</span>
+      </footer>
     </div>
 
-    <template id="app-template">
-      <section class="topbar">
-        <div class="status-block">
-          <span class="label">阶段</span>
-          <strong data-role="phase-label"></strong>
-        </div>
-        <div class="status-block">
-          <span class="label">提示</span>
-          <strong data-role="status-message"></strong>
-        </div>
-        <div class="status-block">
-          <span class="label">AI 难度</span>
-          <select data-role="difficulty-select" aria-label="选择 AI 难度">
-            <option value="easy">简单</option>
-            <option value="medium" selected>普通</option>
-            <option value="hard">困难</option>
-          </select>
-        </div>
-      </section>
+    <div id="modal-root"></div>
+    <div
+      id="live-region"
+      class="visually-hidden"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
 
-      <section class="layout">
-        <aside class="sidebar">
-          <div class="card guide-card">
-            <div class="card-title-row">
-              <h2>作战引导</h2>
-              <button class="ghost-btn" data-action="toggle-tutorial">查看规则</button>
-            </div>
-            <ol class="guide-list">
-              <li>选择舰船，点击格子放置，使用“旋转”切换方向。</li>
-              <li>所有舰船放好后进入对战。</li>
-              <li>点击敌方棋盘发起攻击，等待命中、未命中或击沉反馈。</li>
-              <li>先击沉全部敌舰者获胜。</li>
-            </ol>
-          </div>
-
-          <div class="card" data-role="setup-panel">
-            <div class="card-title-row">
-              <h2>布阵控制</h2>
-              <button class="ghost-btn" data-action="rotate-ship">旋转</button>
-            </div>
-            <div class="setup-summary" data-role="setup-summary"></div>
-            <div class="button-grid">
-              <button data-action="randomize-player">随机布阵</button>
-              <button data-action="reset-player" class="secondary">重置</button>
-              <button data-action="start-battle" class="accent">开始对战</button>
-            </div>
-            <div data-role="ship-list" class="ship-list"></div>
-          </div>
-
-          <div class="card">
-            <h2>战报</h2>
-            <div class="battle-log" data-role="battle-log"></div>
-          </div>
-
-          <div class="card">
-            <h2>统计</h2>
-            <div class="stats-grid" data-role="stats-grid"></div>
-          </div>
-        </aside>
-
-        <section class="board-stage">
-          <div class="board-card primary-board">
-            <div class="board-header">
-              <h2 data-role="enemy-board-title">敌方海域</h2>
-              <p>点击格子攻击</p>
-            </div>
-            <div data-role="enemy-board"></div>
-          </div>
-
-          <div class="board-card secondary-board">
-            <div class="board-header">
-              <h2 data-role="player-board-title">己方海域</h2>
-              <p>布阵与承受攻击反馈</p>
-            </div>
-            <div data-role="player-board"></div>
-          </div>
-        </section>
-      </section>
-
-      <section class="modal hidden" data-role="tutorial-modal">
-        <div class="modal-card">
-          <h2>新手说明</h2>
-          <ul>
-            <li>舰船长度分别为 5、4、3、3、2，只能横向或纵向摆放。</li>
-            <li>舰船不可越界、不可重叠，本版本允许相邻。</li>
-            <li>每回合只能攻击一个格子，系统会反馈未命中、命中或击沉。</li>
-            <li>AI 有三档难度，困难模式会结合概率搜索剩余舰船。</li>
-          </ul>
-          <button data-action="toggle-tutorial" class="accent">知道了</button>
-        </div>
-      </section>
-
-      <section class="modal hidden" data-role="result-modal">
-        <div class="modal-card result-card">
-          <p class="eyebrow">BATTLE REPORT</p>
-          <h2 data-role="result-title"></h2>
-          <div class="result-stats" data-role="result-stats"></div>
-          <div class="button-grid">
-            <button data-action="restart-game" class="accent">再来一局</button>
-            <button data-action="reset-player" class="secondary">重新布阵</button>
-          </div>
-        </div>
-      </section>
-    </template>
-
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./app.js?v=20260816-10"></script>
   </body>
 </html>
