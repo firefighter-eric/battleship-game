@@ -809,6 +809,9 @@ function renderBattle() {
   const enemyRemaining = state.enemyBoard.ships.filter(function remains(ship) {
     return ship.hits.length < ship.length;
   }).length;
+  const playerRemaining = state.playerBoard.ships.filter(function remains(ship) {
+    return ship.hits.length < ship.length;
+  }).length;
   return [
     '<section class="battlefield battle-layout" data-phase="', state.phase, '">',
       '<section class="board-panel main-board-panel">',
@@ -820,11 +823,12 @@ function renderBattle() {
       '</section>',
       '<aside class="side-rail battle-rail">',
         '<section class="rail-panel fleet-panel">',
-          '<header class="rail-heading"><h2>己方舰队</h2><span class="board-summary">', String(SHIP_DEFS.length - state.stats.aiSunk), ' 艘在役</span></header>',
-          '<div class="fleet-list">', renderFleetStatus(), '</div>',
+          '<header class="rail-heading"><h2>舰队状态</h2><span class="board-summary">敌 ', String(enemyRemaining), ' · 我 ', String(playerRemaining), '</span></header>',
+          '<div class="fleet-column-headings" aria-hidden="true"><span>舰种</span><span>敌方</span><span>己方耐久</span></div>',
+          '<div class="fleet-list fleet-overview-list" data-role="fleet-overview" aria-label="敌我舰队状态">', renderFleetStatus(state.enemyBoard, state.playerBoard), '</div>',
         '</section>',
         '<section class="rail-panel mini-board-panel">',
-          '<header class="rail-heading"><h2>己方海域</h2><span class="board-summary">AI ', accuracy(state.stats.aiHits, state.stats.aiShots), '</span></header>',
+          '<header class="rail-heading"><h2>己方海域</h2><span class="board-summary">', String(playerRemaining), ' 艘在役 · AI ', accuracy(state.stats.aiHits, state.stats.aiShots), '</span></header>',
           '<div class="mini-board">', buildBoard(state.playerBoard, "player", false, true, true), '</div>',
         '</section>',
         '<section class="rail-panel battle-log">',
@@ -859,21 +863,26 @@ function renderShipDock() {
   }).join("");
 }
 
-function renderFleetStatus() {
+function renderFleetStatus(enemyBoard, playerBoard) {
   return SHIP_DEFS.map(function fleetRow(shipDef) {
-    const ship = getPlacedShip(state.playerBoard, shipDef.id);
-    const hitKeys = new Set(ship.hits.map(function hitKey(hit) {
+    const enemyShip = getPlacedShip(enemyBoard, shipDef.id);
+    const playerShip = getPlacedShip(playerBoard, shipDef.id);
+    const playerHitKeys = new Set(playerShip.hits.map(function hitKey(hit) {
       return coordKey(hit.x, hit.y);
     }));
-    const sunk = ship.hits.length === ship.length;
-    const segments = ship.cells.map(function healthSegment(cell) {
-      return '<span class="' + (hitKeys.has(coordKey(cell.x, cell.y)) ? "hit" : "") + '"></span>';
+    const enemySunk = enemyShip.hits.length === enemyShip.length;
+    const playerSunk = playerShip.hits.length === playerShip.length;
+    const playerRemaining = shipDef.length - playerShip.hits.length;
+    const playerSegments = playerShip.cells.map(function healthSegment(cell) {
+      return '<span class="' + (playerHitKeys.has(coordKey(cell.x, cell.y)) ? "hit" : "") + '"></span>';
     }).join("");
+    const enemyStatus = enemySunk ? "已沉没" : "在役";
+    const playerStatus = String(playerRemaining) + "/" + String(shipDef.length);
     return [
-      '<div class="fleet-row ', sunk ? "sunk" : "", '">',
-        '<span>', shipDef.name, '</span>',
-        '<span class="health-segments" aria-hidden="true">', segments, '</span>',
-        '<span class="fleet-count">', String(shipDef.length - ship.hits.length), '/', String(shipDef.length), '</span>',
+      '<div class="fleet-row fleet-overview-row ', enemySunk ? "enemy-sunk" : "", ' ', playerSunk ? "player-sunk" : "", '" data-ship-status="', shipDef.id, '" data-state="', enemySunk ? "sunk" : "afloat", '" data-player-state="', playerSunk ? "sunk" : "afloat", '" aria-label="', shipDef.name, '，敌方', enemySunk ? "已击沉" : "仍在役", '，己方剩余', playerStatus, '">',
+        '<span class="fleet-name">', shipDef.name, '</span>',
+        '<span class="fleet-count fleet-state">', enemyStatus, '</span>',
+        '<span class="own-fleet-health"><span class="health-segments" aria-hidden="true">', playerSegments, '</span><span class="fleet-count">', playerStatus, '</span></span>',
       '</div>',
     ].join("");
   }).join("");
@@ -1253,6 +1262,40 @@ if (new URLSearchParams(window.location.search).get("test") === "1") {
       if (winner === "player") state.stats.playerSunk = SHIP_DEFS.length;
       if (winner === "ai") state.stats.aiSunk = SHIP_DEFS.length;
       completeGame(winner);
+    },
+    sinkEnemy: function sinkEnemyForTest(shipId) {
+      if (state.phase !== "battle") return false;
+      const ship = getPlacedShip(state.enemyBoard, shipId);
+      if (!ship) return false;
+      let newlySunk = false;
+      ship.cells.forEach(function sinkCell(cell) {
+        const outcome = resolveShot(state.enemyBoard, cell.x, cell.y);
+        if (!outcome.valid) return;
+        state.stats.playerShots += 1;
+        state.stats.playerHits += 1;
+        if (outcome.newlySunk) newlySunk = true;
+      });
+      if (newlySunk) state.stats.playerSunk += 1;
+      setMessage(ship.name + "已击沉。敌方剩余" + String(SHIP_DEFS.length - state.stats.playerSunk) + "艘舰船。");
+      render();
+      return newlySunk;
+    },
+    sinkPlayer: function sinkPlayerForTest(shipId) {
+      if (state.phase !== "battle") return false;
+      const ship = getPlacedShip(state.playerBoard, shipId);
+      if (!ship) return false;
+      let newlySunk = false;
+      ship.cells.forEach(function sinkCell(cell) {
+        const outcome = resolveShot(state.playerBoard, cell.x, cell.y);
+        if (!outcome.valid) return;
+        state.stats.aiShots += 1;
+        state.stats.aiHits += 1;
+        if (outcome.newlySunk) newlySunk = true;
+      });
+      if (newlySunk) state.stats.aiSunk += 1;
+      setMessage("己方" + ship.name + "已沉没。仍有" + String(SHIP_DEFS.length - state.stats.aiSunk) + "艘舰船在役。");
+      render();
+      return newlySunk;
     },
   };
 }
